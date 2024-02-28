@@ -1,6 +1,10 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { styled } from "styled-components";
 import ItemsRow from "./Components/ItemsRow";
+import getByBrand from "./Functions/getByBrand";
+import getByPrice from "./Functions/getByPrice";
+import getByProduct from "./Functions/getByProduct";
+import getDuplicates from "./Functions/getDuplicates";
 import getIds from "./Functions/getIds";
 import getItems from "./Functions/getItems";
 
@@ -10,6 +14,7 @@ const PageCounter = styled.div`
   justify-content: center;
   max-width: 4rem;
   max-height: 2.8rem;
+  padding: 1rem;
   > * {
     padding: 0.6rem;
     &:hover:not(span) {
@@ -17,12 +22,14 @@ const PageCounter = styled.div`
     }
   }
 `;
+
 const StyledForm = styled.form`
   display: flex;
   flex-direction: row;
-
+  align-items: center;
+  justify-content: center;
   > * {
-    padding: 1rem 2rem 2rem 2rem;
+    margin: 1.6rem;
   }
 `;
 
@@ -39,6 +46,7 @@ const Wrapper = styled.div`
   grid-template-columns: 18vw 18vw 18vw 18vw 18vw;
   grid-template-rows: 10vw 10vw 10vw 10vw 10vw;
   gap: 1rem;
+  justify-content: center;
 `;
 
 function App() {
@@ -49,8 +57,9 @@ function App() {
   const [price, setPrice] = useState("");
   const [brand, setBrand] = useState("");
   const [product, setProduct] = useState("");
+  const [error, setError] = useState("");
 
-  // Getting any 50 ids withoun filtering
+  // Getting any 50 ids without filtering
   useEffect(
     function () {
       setAllItems([]);
@@ -59,7 +68,8 @@ function App() {
       const waiting = async function () {
         try {
           setAllIds(await getIds(page));
-        } catch (error) {
+        } catch (err) {
+          setError(err.message);
           console.log(error);
         } finally {
           setIsLoading(false);
@@ -78,7 +88,8 @@ function App() {
       const waiting = async function () {
         try {
           setAllItems(await getItems(allIds));
-        } catch (error) {
+        } catch (err) {
+          setError(err.message);
           console.log(error);
         } finally {
           setIsLoading(false);
@@ -91,6 +102,43 @@ function App() {
     [allIds]
   );
 
+  const handleBrand = (e) => {
+    setBrand(e.target.value);
+  };
+  const handlePrice = (e) => {
+    setPrice(e.target.value);
+  };
+  const handleProduct = (e) => {
+    setProduct(e.target.value);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const reducerArray = [];
+    setIsLoading(true);
+
+    const waiting = async function (func) {
+      reducerArray.push(await func);
+    };
+
+    try {
+      brand !== "" && waiting(getByBrand(brand));
+      price !== "" && waiting(getByPrice(price));
+      product !== "" && waiting(getByProduct(product));
+      // feel shamed for this
+      setTimeout(() => {
+        reducerArray.length > 1
+          ? setAllIds(getDuplicates(reducerArray))
+          : setAllIds(...reducerArray);
+      }, 2000);
+    } catch (err) {
+      console.log(err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <>
       <StyledHeader>
@@ -100,21 +148,16 @@ function App() {
           <h3 onClick={() => setPage(page + 1)}> &gt; </h3>
         </PageCounter>
 
-        <StyledForm>
-          <h3>
-            Brand <input></input>
-          </h3>
-          <h3>
-            Price <input></input>
-          </h3>
-          <h3>
-            Product <input></input>
-          </h3>
+        <StyledForm onSubmit={handleSubmit}>
+          Brand <input onChange={handleBrand}></input>
+          Price <input onChange={handlePrice}></input>
+          Product <input onChange={handleProduct}></input>
+          <button type="submit">Confirm</button>
         </StyledForm>
       </StyledHeader>
 
       <Wrapper>
-        <ItemsRow data={allItems} isLoading={isLoading} />
+        {isLoading ? <div>Loading...</div> : <ItemsRow data={allItems} />}
       </Wrapper>
     </>
   );
